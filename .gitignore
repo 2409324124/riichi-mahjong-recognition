@@ -131,3 +131,7 @@ environment.yml
 # IDE settings
 .vscode/settings.json
 .idea/workspace.xml
+# Data and runs
+data/
+runs/
+

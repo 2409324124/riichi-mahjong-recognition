@@ -1,0 +1,82 @@
+# 日本立直麻将识别系统 - Docker Compose 配置
+
+services:
+  # 训练服务
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      # 挂载项目目录（代码）
+      - .:/app
+      # 挂载数据目录（大数据不进入镜像）
+      - ./data:/app/data
+      # 挂载训练输出目录
+      - ./runs:/app/runs
+    command: >
+      scripts/train_yolo.py
+      --mode train
+      --data data/yolo_dataset/mahjong.yaml
+      --model-size n
+      --img-size 640
+      --batch-size 16
+      --epochs 100
+      --device 0
+    working_dir: /app
+
+  # 评估服务
+  eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./runs:/app/runs
+    command: >
+      scripts/train_yolo.py
+      --mode eval
+      --model runs/train/mahjong_detection/weights/best.pt
+      --data data/yolo_dataset/mahjong.yaml
+      --device 0
+    working_dir: /app
+
+  # 预测服务
+  predict:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./runs:/app/runs
+    command: >
+      scripts/train_yolo.py
+      --mode predict
+      --model runs/train/mahjong_detection/weights/best.pt
+      --image data/test_image.jpg
+      --conf 0.5
+      --device 0
+    working_dir: /app
+
+  # 测试服务（运行单元测试）
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    command: pytest tests/ -v
+    working_dir: /app
