@@ -63,7 +63,60 @@
 - 役种检查（至少1个役）
 - 振听检查
 
-### 5. 雀魂游戏记录解析器 ✅
+### 5. 系统集成 ✅
+
+| 模块 | 文件 | 说明 |
+|------|------|------|
+| 主控制器 | `src/system.py` | 整合三个模块的完整流程 |
+
+**API 接口**：
+```python
+from src.system import MahjongSystem
+
+system = MahjongSystem()
+
+# 分析手牌
+result = system.analyze_hand(["1m", "2m", "3m", ...])
+
+# 验证和牌
+result = system.validate_win(["1m", "2m", ...], "3m", is_tsumo=True)
+
+# 计算点数
+result = system.calculate_score(["1m", "2m", ...], "3m", is_tsumo=True)
+
+# 打牌推荐
+result = system.get_discard_recommendation(["1m", "2m", "3m", ...])
+```
+
+### 6. 命令行界面 ✅
+
+| 命令 | 说明 |
+|------|------|
+| `mahjong analyze` | 分析手牌 |
+| `mahjong win` | 验证和牌 |
+| `mahjong score` | 计算点数 |
+| `mahjong recommend` | 打牌推荐 |
+| `mahjong camera` | 摄像头实时识别 |
+
+**使用示例**：
+```bash
+# 分析手牌
+python -m src.cli analyze 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s
+
+# 验证和牌
+python -m src.cli win 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s --win 3s --tsumo
+
+# 计算点数
+python -m src.cli score 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s --win 3s --tsumo --riichi
+
+# 打牌推荐
+python -m src.cli recommend 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s 3s
+
+# 摄像头实时识别
+python -m src.cli camera --camera 0 --model runs/detect/runs/train/mahjong_detection-4/weights/best.pt
+```
+
+### 7. 雀魂游戏记录解析器 ✅
 
 | 模块 | 文件 | 说明 |
 |------|------|------|
@@ -80,7 +133,7 @@ python scripts/majsoul_parser.py 0000034c-a2a9-4dfa-ae63-bd81aa25ebad
 
 ## 测试状态
 
-**总计：75 个测试全部通过**
+**总计：88 个测试全部通过**
 
 | 测试文件 | 测试数 | 说明 |
 |----------|--------|------|
@@ -88,6 +141,7 @@ python scripts/majsoul_parser.py 0000034c-a2a9-4dfa-ae63-bd81aa25ebad
 | `tests/test_yaku.py` | 38 | 所有役种测试 |
 | `tests/test_validator.py` | 16 | 和牌验证器测试 |
 | `tests/test_cross_validation.py` | 15 | 与 mahjong 包交叉验证 |
+| `tests/test_system.py` | 13 | 系统集成测试 |
 
 ---
 
@@ -105,6 +159,9 @@ riichi-mahjong-recognition/
 ├── .gitignore
 │
 ├── src/                            # 源代码
+│   ├── __init__.py                 # 包初始化
+│   ├── system.py                   # 系统集成主控制器
+│   ├── cli.py                      # 命令行界面
 │   ├── game_logic/                 # 麻将逻辑
 │   │   ├── tile.py                 # 麻将牌定义
 │   │   ├── hand.py                 # 手牌管理
@@ -136,7 +193,8 @@ riichi-mahjong-recognition/
 │   ├── test_scoring.py             # 计分测试
 │   ├── test_yaku.py                # 役种测试
 │   ├── test_validator.py           # 验证器测试
-│   └── test_cross_validation.py    # 交叉验证
+│   ├── test_cross_validation.py    # 交叉验证
+│   └── test_system.py              # 系统集成测试
 │
 ├── data/                           # 数据（不提交到 git）
 │   ├── merged_dataset/             # 合并数据集
@@ -202,10 +260,9 @@ pytest tests/ -v
 
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
-| 系统集成 | 高 | 将三个模块集成到一个完整流程 |
-| 命令行界面 | 中 | 创建 CLI 工具 |
-| 摄像头实时识别 | 中 | 实时识别真实麻将牌 |
 | GUI 界面 | 低 | 图形用户界面 |
+| 更多测试数据 | 中 | 收集更多真实麻将牌图片 |
+| 模型优化 | 中 | 提高识别准确率和速度 |
 
 ---
 
@@ -229,5 +286,7 @@ pytest tests/ -v
 ---
 
 **最后更新**：2026年6月15日
+**版本**：v0.3.0
+**测试状态**：88 passed
 **版本**：v0.2.0
 **测试状态**：75 passed
