@@ -72,12 +72,16 @@ class WinValidator:
         Returns:
             WinResult: 验证结果
         """
-        # 1. 牌数检查
+        # 1. 牌数检查（手牌 + 副露 = 13 张）
         hand_tiles = hand.get_tiles()
-        if len(hand_tiles) != 13:
+        melds = hand.get_melds()
+        meld_tiles_count = sum(len(meld) for meld in melds)
+        total_tiles = len(hand_tiles) + meld_tiles_count
+        
+        if total_tiles != 13:
             return WinResult(
                 is_valid=False,
-                error=f"手牌不是13张（当前{len(hand_tiles)}张）"
+                error=f"手牌+副露不是13张（当前手牌{len(hand_tiles)}张 + 副露{meld_tiles_count}张 = {total_tiles}张）"
             )
         
         # 添加和的牌，组成 14 张
@@ -167,7 +171,14 @@ class WinValidator:
         - 七对子：7组对子
         - 国士无双：13种幺九牌 + 1种重复
         """
+        # 获取门前清手牌的 34 数组
         tiles_34 = hand.to_34_array()
+        
+        # 将副露的牌也加入到 34 数组中
+        melds = hand.get_melds()
+        for meld in melds:
+            for tile in meld:
+                tiles_34[tile.tile_id] += 1
         
         # 检查七对子
         if self._is_chiitoitsu(tiles_34):
