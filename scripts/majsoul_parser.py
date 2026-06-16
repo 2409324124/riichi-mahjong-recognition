@@ -24,7 +24,7 @@ class MajsoulRecordParser:
         从雀魂服务器获取游戏记录
         
         Args:
-            game_uuid: 游戏记录 UUID
+            game_uuid: 游戏记录 UUID（支持纯 UUID 或列表 ID）
         
         Returns:
             原始二进制数据
@@ -32,6 +32,27 @@ class MajsoulRecordParser:
         url = f"https://record-v2.maj-soul.com:5333/majsoul/game_record/{game_uuid}"
         response = urllib.request.urlopen(url, timeout=30)
         return response.read()
+    
+    def fetch_uuid_list(self, list_id: str) -> list:
+        """
+        从文件列表获取 UUID 列表
+        
+        Args:
+            list_id: 列表 ID（如 68292379）
+        
+        Returns:
+            UUID 列表
+        """
+        import re
+        
+        data = self.fetch_record(list_id)
+        text = data.decode('utf-8')
+        
+        # 提取 UUID
+        pattern = r'game_record/v0/([0-9a-f-]+)'
+        uuids = re.findall(pattern, text)
+        
+        return uuids
     
     def parse(self, data: bytes) -> list:
         """
@@ -252,11 +273,16 @@ class MajsoulRecordParser:
         """
         转换雀魂牌格式到我们的格式
         
-        雀魂格式: "1m", "5p", "9s", "1z" (z: 1=东,2=南,3=西,4=北,5=白,6=发,7=中)
+        雀魂格式: "1m", "5p", "9s", "1z", "0M", "0P", "0S" (红宝牌)
         我们的格式: Tile 对象
         """
         if not tile_str:
             return None
+        
+        # 处理红宝牌 (0M, 0P, 0S -> 5m, 5p, 5s)
+        if tile_str.upper() in ['0M', '0P', '0S']:
+            suit = tile_str[-1].lower()
+            return Tile.from_string(f"5{suit}")
         
         suit = tile_str[-1]
         number = tile_str[:-1]
@@ -372,10 +398,35 @@ if __name__ == "__main__":
             records = parser.parse_by_id(game_uuid)
             print(f"解析成功，共 {len(records)} 条记录")
             
-            for i, record in enumerate(records):
-                print(f"  [{i}] {record['name']}")
+            # 查找和牌事件
+            hora_records = [r for r in records if r['name'] == 'RecordHule']
+            print(f"和牌事件: {len(hora_records)} 个")
+            
+            for i, record in enumerate(hora_records):
+                data = record['data']
+                results = parser.validate_hora(data)
+                for j, result in enumerate(results):
+                    print(f"\n[{i}][{j}] 和牌验证:")
+                    print(f"  座位: {result['seat']}, 自摸: {result['zimo']}")
+                    print(f"  手牌: {[str(t) for t in result['hand']]}")
+                    print(f"  副露: {len(result['melds'])} 组")
+                    print(f"  和牌: {result['winning_tile']}")
+                    print(f"  验证: {'✓' if result['is_valid'] else '✗'}")
+                    if result['is_valid']:
+                        print(f"  番数: {result['han']}")
+                        print(f"  符数: {result['fu']}")
+                        print(f"  点数: {result['points']}")
+                        print(f"  役种: {result['yaku_list']}")
+                    else:
+                        print(f"  错误: {result.get('error', '未知')}")
         except Exception as e:
             print(f"获取失败: {e}")
     else:
-        print("用法: python majsoul_parser.py <game_uuid>")
-        print("示例: python majsoul_parser.py 240204-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+        print("用法: python majsoul_parser.py <game_uuid_or_paipu>")
+        print("")
+        print("支持的格式:")
+        print("  纯 UUID: 0000034c-a2a9-4dfa-ae63-bd81aa25ebad")
+        print("  Paipu:   260523-372a5e0d-8aa9-4af1-bf99-9498d066c896_a40365570")
+        print("")
+        print("获取方式:")
+        print("  majsoul-query records <玩家名>")
