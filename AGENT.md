@@ -129,11 +129,33 @@ python scripts/majsoul_parser.py 0000034c-a2a9-4dfa-ae63-bd81aa25ebad
 
 **已验证**：使用 UUID `0000034c-a2a9-4dfa-ae63-bd81aa25ebad` 验证 4 个和牌事件全部成功。
 
+### 8. GUI 界面 ✅
+
+| 模块 | 文件 | 说明 |
+|------|------|------|
+| 主窗口 | `src/gui/main_window.py` | GUI 主窗口 |
+| 手牌输入 | `src/gui/hand_panel.py` | 手牌输入面板 |
+| 结果显示 | `src/gui/result_panel.py` | 分析结果显示 |
+| 摄像头 | `src/gui/camera_panel.py` | 摄像头识别面板 |
+| 自定义组件 | `src/gui/widgets.py` | 牌按钮、牌选择器等 |
+
+**启动方式**：
+```bash
+python -m src.gui
+```
+
+**功能**：
+- 手牌输入（点击选择牌）
+- 分析手牌（向听、接受牌）
+- 打牌推荐
+- 和牌验证
+- 摄像头识别（待完善）
+
 ---
 
 ## 测试状态
 
-**总计：88 个测试全部通过**
+**总计：97 个测试全部通过**
 
 | 测试文件 | 测试数 | 说明 |
 |----------|--------|------|
@@ -142,6 +164,7 @@ python scripts/majsoul_parser.py 0000034c-a2a9-4dfa-ae63-bd81aa25ebad
 | `tests/test_validator.py` | 16 | 和牌验证器测试 |
 | `tests/test_cross_validation.py` | 15 | 与 mahjong 包交叉验证 |
 | `tests/test_system.py` | 13 | 系统集成测试 |
+| `tests/test_gui.py` | 9 | GUI 测试 |
 
 ---
 
@@ -179,6 +202,12 @@ riichi-mahjong-recognition/
 │   │   └── recognizer.py           # 识别器
 │   ├── agent/                      # Agent 模块
 │   │   └── validator.py            # 和牌验证器
+│   ├── gui/                        # GUI 模块
+│   │   ├── main_window.py          # 主窗口
+│   │   ├── hand_panel.py           # 手牌输入面板
+│   │   ├── result_panel.py         # 结果显示面板
+│   │   ├── camera_panel.py         # 摄像头面板
+│   │   └── widgets.py              # 自定义组件
 │   └── utils/                      # 工具函数
 │
 ├── scripts/                        # 脚本
@@ -260,9 +289,9 @@ pytest tests/ -v
 
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
-| GUI 界面 | 低 | 图形用户界面 |
 | 更多测试数据 | 中 | 收集更多真实麻将牌图片 |
 | 模型优化 | 中 | 提高识别准确率和速度 |
+| 摄像头识别集成 | 中 | 完善摄像头实时识别功能 |
 
 ---
 
@@ -286,7 +315,5 @@ pytest tests/ -v
 ---
 
 **最后更新**：2026年6月15日
-**版本**：v0.3.0
-**测试状态**：88 passed
-**版本**：v0.2.0
-**测试状态**：75 passed
+**版本**：v0.4.0
+**测试状态**：97 passed
