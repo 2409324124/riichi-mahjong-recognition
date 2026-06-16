@@ -2,16 +2,45 @@
 
 一个基于计算机视觉的真实麻将牌识别系统，专注于日本立直麻将（Riichi Mahjong）规则。
 
+**GitHub**: https://github.com/2409324124/riichi-mahjong-recognition
+
+---
+
+## 系统架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    用户界面层                            │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │  牌面识别    │  │  计分系统    │  │  牌效计算    │     │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
+├─────────┼───────────────┼───────────────┼─────────────┤
+│         └───────────────┼───────────────┘              │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              主控制器 (system.py)               │   │
+│  │  - analyze_hand()                               │   │
+│  │  - validate_win()                               │   │
+│  │  - calculate_score()                            │   │
+│  │  - get_discard_recommendation()                 │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 功能特性
 
 ### 1. 牌面识别
-- 使用YOLOv8进行麻将牌检测
+- 使用 YOLOv8 进行麻将牌检测
 - 支持真实麻将牌识别
 - 实时摄像头识别
+- mAP50: 99.5%
 
 ### 2. 计分系统
 - 完整的日本立直麻将规则实现
-- 支持50+种役种识别
+- 支持 38 种役种识别（含役满）
 - 自动计算番数、符数和点数
 - 支持各种特殊规则（役满、宝牌等）
 
@@ -20,6 +49,18 @@
 - 接受牌分析
 - 牌效率评估
 - 打牌推荐
+
+### 4. 和牌验证
+- 防止诈和
+- 支持副露手牌验证
+- 振听检查
+
+### 5. 雀魂记录解析
+- 从玩家 ID 获取游戏记录
+- 解析 protobuf 格式记录
+- 验证和牌事件
+
+---
 
 ## 技术栈
 
@@ -30,48 +71,66 @@
 - **NumPy** - 数值计算
 - **pytest** - 测试框架
 
+---
+
 ## 项目结构
 
 ```
 riichi-mahjong-recognition/
-├── README.md                    # 项目说明
-├── AGENT.md                     # AI助手指南
-├── requirements.txt             # Python依赖
-├── pyproject.toml               # 项目配置
-├── .gitignore                   # Git忽略文件
-├── data/                        # 数据目录
-│   ├── raw/                     # 原始图像数据
-│   ├── processed/               # 处理后的数据
-│   └── models/                  # 训练好的模型
-├── src/                         # 源代码
-│   ├── recognition/             # 牌面识别模块
-│   │   ├── detector.py          # YOLO检测器
-│   │   ├── classifier.py        # 牌面分类器
-│   │   └── recognizer.py        # 识别主逻辑
-│   ├── game_logic/              # 麻将逻辑模块
-│   │   ├── tile.py              # 麻将牌定义
-│   │   ├── hand.py              # 手牌管理
-│   │   └── scoring/             # 计分系统
-│   │       ├── yaku.py          # 役种识别
-│   │       ├── fu.py            # 符数计算
-│   │       └── score.py         # 点数计算
-│   ├── efficiency/              # 牌效计算模块
-│   │   ├── shanten.py           # 向听数计算
-│   │   ├── ukeire.py            # 接受牌计算
-│   │   └── analyzer.py          # 牌效分析
-│   └── utils/                   # 工具函数
-│       ├── image_utils.py       # 图像处理工具
-│       └── mahjong_utils.py     # 麻将工具函数
-├── tests/                       # 测试文件
-│   ├── test_recognition.py      # 识别测试
-│   ├── test_scoring.py          # 计分测试
-│   └── test_efficiency.py       # 牌效测试
-├── notebooks/                   # Jupyter notebooks
-│   └── exploration.ipynb        # 探索性分析
-└── scripts/                     # 脚本文件
-    ├── train.py                 # 模型训练脚本
-    └── evaluate.py              # 模型评估脚本
+├── README.md                     # 本文件
+├── AGENT.md                      # AI 助手指南
+├── pyproject.toml                # 项目配置
+├── requirements.txt              # Python 依赖
+├── Dockerfile                    # Docker 配置
+├── docker-compose.yml            # Docker Compose
+│
+├── src/                          # 源代码
+│   ├── system.py                 # 系统集成主控制器
+│   ├── cli.py                    # 命令行界面
+│   ├── game_logic/               # 麻将逻辑
+│   │   ├── tile.py               # 麻将牌定义
+│   │   ├── hand.py               # 手牌管理
+│   │   └── scoring/              # 计分系统
+│   │       ├── yaku.py           # 役种识别
+│   │       ├── fu.py             # 符数计算
+│   │       └── score.py          # 点数计算
+│   ├── efficiency/               # 牌效计算
+│   │   ├── shanten.py            # 向听数
+│   │   ├── ukeire.py             # 接受牌
+│   │   └── analyzer.py           # 牌效分析
+│   ├── recognition/              # 牌面识别
+│   │   ├── detector.py           # YOLO 检测
+│   │   ├── classifier.py         # 分类器
+│   │   └── recognizer.py         # 识别器
+│   ├── agent/                    # Agent 模块
+│   │   └── validator.py          # 和牌验证器
+│   ├── gui/                      # GUI 模块
+│   │   ├── main_window.py        # 主窗口
+│   │   ├── hand_panel.py         # 手牌输入
+│   │   ├── result_panel.py       # 结果显示
+│   │   ├── camera_panel.py       # 摄像头
+│   │   └── widgets.py            # 自定义组件
+│   └── utils/                    # 工具函数
+│
+├── scripts/                      # 脚本
+│   ├── train_yolo.py             # YOLO 训练
+│   ├── augment_dataset.py        # 数据增强
+│   ├── majsoul_parser.py         # 雀魂记录解析
+│   └── batch_test.py             # 批量测试
+│
+├── tests/                        # 测试
+│   ├── test_scoring.py           # 计分测试
+│   ├── test_yaku.py              # 役种测试
+│   ├── test_validator.py         # 验证器测试
+│   ├── test_system.py            # 系统集成测试
+│   ├── test_gui.py               # GUI 测试
+│   └── test_boundary.py          # 边界条件测试
+│
+└── docs/                         # 文档
+    └── MAJSOUL_PARSER.md         # 雀魂记录解析文档
 ```
+
+---
 
 ## 快速开始
 
@@ -79,13 +138,13 @@ riichi-mahjong-recognition/
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/2409324124/riichi-mahjong-recognition.git
 cd riichi-mahjong-recognition
 
 # 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate  # Windows
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate  # Windows
 
 # 安装依赖
 pip install -r requirements.txt
@@ -95,10 +154,10 @@ pip install -r requirements.txt
 
 ```bash
 # 运行所有测试
-pytest
+pytest tests/ -v
 
 # 运行特定模块测试
-pytest tests/test_scoring.py
+pytest tests/test_scoring.py -v
 
 # 运行带覆盖率的测试
 pytest --cov=src
@@ -106,109 +165,157 @@ pytest --cov=src
 
 ### 使用示例
 
+#### Python API
+
 ```python
-from src.game_logic.tile import Tile
-from src.game_logic.hand import Hand
-from src.game_logic.scoring.score import ScoreCalculator
+from src.system import MahjongSystem
 
-# 创建手牌
-hand = Hand()
-hand.add_tile(Tile("1m"))
-hand.add_tile(Tile("2m"))
-hand.add_tile(Tile("3m"))
-# ...
+system = MahjongSystem()
 
-# 计算点数
-calculator = ScoreCalculator()
-result = calculator.calculate(hand)
-print(f"番数: {result.han}, 符数: {result.fu}, 点数: {result.points}")
+# 分析手牌
+result = system.analyze_hand(
+    ["1m", "2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "1s", "1s", "1s", "2s"]
+)
+print(f"向听数: {result.shanten.shanten}")
+
+# 验证和牌
+result = system.validate_win(
+    tile_strings=["1m", "2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "1s", "1s", "1s", "2s"],
+    winning_tile_str="3s",
+    is_tsumo=True
+)
+print(f"有效: {result.is_valid}, 番数: {result.han}")
+
+# 打牌推荐
+result = system.get_discard_recommendation(
+    ["1m", "2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "1s", "1s", "1s", "2s", "3s"]
+)
+print(f"推荐打牌: {result['best_discard']}")
 ```
 
-## 开发阶段
+#### 命令行界面
 
-### 阶段1：项目初始化（1-2天）
-- [x] 创建项目目录结构
-- [x] 初始化git仓库
-- [x] 创建AGENT.md
-- [ ] 创建README.md
-- [ ] 创建requirements.txt
-- [ ] 创建pyproject.toml
-- [ ] 创建.gitignore
+```bash
+# 分析手牌
+python -m src.cli analyze 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s
 
-### 阶段2：计分系统（2-3周）
-- [ ] 实现麻将牌定义（34种牌）
-- [ ] 实现手牌管理
-- [ ] 实现役种识别（50+种役）
-- [ ] 实现符数计算
-- [ ] 实现点数计算
-- [ ] 编写单元测试
+# 验证和牌
+python -m src.cli win 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s --win 3s --tsumo
 
-### 阶段3：牌面识别（3-4周）
-- [ ] 收集麻将牌图像数据集
-- [ ] 数据标注和预处理
-- [ ] 训练YOLO检测模型
-- [ ] 实现牌面分类器
-- [ ] 集成识别pipeline
-- [ ] 优化识别准确率
+# 打牌推荐
+python -m src.cli recommend 1m 2m 3m 4p 5p 6p 7s 8s 9s 1s 1s 1s 2s 3s
 
-### 阶段4：牌效计算（2-3周）
-- [ ] 实现向听数计算
-- [ ] 实现接受牌计算
-- [ ] 实现牌效率分析
-- [ ] 实现打牌推荐
-- [ ] 编写单元测试
+# 启动 GUI
+python -m src.gui
+```
 
-### 阶段5：集成测试（1-2周）
-- [ ] 集成所有模块
-- [ ] 端到端测试
-- [ ] 性能优化
-- [ ] 文档完善
+#### 雀魂记录解析
 
-## 麻将规则参考
+```bash
+# 查询玩家记录
+majsoul-query records "玩家名"
 
-### 牌的种类
-- **万子** (Man): 1-9万
-- **筒子** (Pin): 1-9筒
-- **索子** (Sou): 1-9索
-- **风牌** (Wind): 东、南、西、北
-- **三元牌** (Dragon): 白、发、中
+# 解析游戏记录
+python scripts/majsoul_parser.py <uuid>
 
-### 役种示例
-- **1番**: 立直、断幺九、平和、一杯口
-- **2番**: 三色同顺、一气通贯、混全带幺九
-- **3番**: 混一色、纯全带幺九、二杯口
-- **6番**: 清一色
-- **役满**: 国士无双、九莲宝灯、大三元
-
-### 计分规则
-- 点数 = 基本点 × 支付倍数
-- 基本点 = 符 × 2^(番+2)
-- 满贯以上固定点数：满贯8000、跳满12000、倍满16000、三倍满24000、役满32000
-
-## 贡献指南
-
-1. Fork项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建Pull Request
-
-## 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 致谢
-
-- [MahjongRepository/mahjong](https://github.com/MahjongRepository/mahjong) - Python麻将库参考
-- [EndlessCheng/mahjong-helper](https://github.com/EndlessCheng/mahjong-helper) - 牌效分析参考
-- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) - 目标检测框架
-
-## 联系方式
-
-- 项目链接: [https://github.com/yourusername/riichi-mahjong-recognition](https://github.com/yourusername/riichi-mahjong-recognition)
-- 问题反馈: [Issues](https://github.com/yourusername/riichi-mahjong-recognition/issues)
+# 批量测试
+python scripts/batch_test.py --player-id 68292379 --max-records 100
+```
 
 ---
 
-**最后更新**: 2026年6月15日
-**版本**: v0.1.0
+## 测试状态
+
+**总计：120+ 个测试全部通过**
+
+| 测试文件 | 测试数 | 说明 |
+|----------|--------|------|
+| test_scoring.py | 6 | 计分系统 |
+| test_yaku.py | 38 | 役种识别 |
+| test_validator.py | 16 | 和牌验证 |
+| test_cross_validation.py | 15 | 交叉验证 |
+| test_system.py | 13 | 系统集成 |
+| test_gui.py | 9 | GUI |
+| test_boundary.py | 23 | 边界条件 |
+
+---
+
+## 开发阶段
+
+### ✅ 阶段1：项目初始化
+- [x] 创建项目目录结构
+- [x] 初始化 git 仓库
+- [x] 创建 AGENT.md
+
+### ✅ 阶段2：计分系统
+- [x] 实现麻将牌定义（34种牌）
+- [x] 实现手牌管理
+- [x] 实现役种识别（38种役）
+- [x] 实现符数计算
+- [x] 实现点数计算
+- [x] 编写单元测试
+
+### ✅ 阶段3：牌面识别
+- [x] 收集麻将牌图像数据集
+- [x] 数据标注和预处理
+- [x] 训练 YOLO 检测模型
+- [x] 实现牌面分类器
+- [x] 集成识别 pipeline
+
+### ✅ 阶段4：牌效计算
+- [x] 实现向听数计算
+- [x] 实现接受牌计算
+- [x] 实现牌效分析
+- [x] 实现打牌推荐
+
+### ✅ 阶段5：系统集成
+- [x] 实现系统集成模块
+- [x] 实现命令行界面
+- [x] 实现 GUI 界面
+- [x] 实现和牌验证器
+- [x] 实现雀魂记录解析
+
+---
+
+## 已知问题
+
+1. **honitsu（混一色）测试**：mahjong 包的 API 格式与我们不同，暂未交叉验证
+2. **副露手牌验证**：需要将副露的牌加入 34 数组才能正确验证和牌形状
+3. **雀魂记录解析**：hand 字段包含和牌，需要移除后才能验证
+4. **手牌数量不匹配**：雀魂记录中 hand 字段可能不包含所有牌，导致验证失败
+
+---
+
+## 验收标准
+
+### 计分系统
+- ✅ 38 种役种全部实现
+- ✅ 120 个测试全部通过
+
+### 牌面识别
+- ✅ YOLOv8 模型训练完成
+- ✅ mAP50: 99.5%
+
+### 雀魂记录解析
+- ✅ 支持从玩家 ID 获取 UUID 列表
+- ✅ 支持解析 protobuf 格式记录
+- ✅ 支持红宝牌、副露格式
+- 🔄 验证通过率 >= 95%（当前 81.2%）
+
+---
+
+## 参考资源
+
+| 资源 | 链接 | 说明 |
+|------|------|------|
+| MahjongRepository/mahjong | https://github.com/MahjongRepository/mahjong | Python 麻将库 |
+| EndlessCheng/mahjong-helper | https://github.com/EndlessCheng/mahjong-helper | 麻将助手 |
+| shinkuan/Akagi | https://github.com/shinkuan/Akagi | 雀魂 AI 助手 |
+| latorc/MahjongCopilot | https://github.com/latorc/MahjongCopilot | 麻将 Copilot |
+| Ultralytics YOLOv8 | https://github.com/ultralytics/ultralytics | 目标检测框架 |
+
+---
+
+**最后更新**: 2026年6月16日
+**版本**: v0.6.0
+**测试状态**: 120+ passed
