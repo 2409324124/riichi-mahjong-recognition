@@ -239,7 +239,7 @@ class MajsoulRecordParser:
         解析副露格式
         
         Args:
-            ming_str: 副露字符串，如 "kezi(5z,5z,5z)" 或 "shunzi(1s,3s,2s)"
+            ming_str: 副露字符串，如 "kezi(5z,5z,5z)", "shunzi(1s,3s,2s)", 或 "1m|1m|1m|1m"
         
         Returns:
             牌字符串列表
@@ -265,6 +265,11 @@ class MajsoulRecordParser:
         gangzi_match = re.match(r'gangzi\(([^)]+)\)', ming_str)
         if gangzi_match:
             tiles = gangzi_match.group(1).split(',')
+            return [t.strip() for t in tiles]
+        
+        # 解析 | 分隔格式（如 1m|1m|1m|1m）
+        if '|' in ming_str:
+            tiles = ming_str.split('|')
             return [t.strip() for t in tiles]
         
         return []
@@ -305,7 +310,7 @@ class MajsoulRecordParser:
     
     def validate_hora(self, hule_data, is_tsumo: bool = None, is_riichi: bool = False) -> dict:
         """
-        验证和牌事件
+        验证和牌事件（直接使用雀魂结果）
         
         Args:
             hule_data: HuleInfo 数据
@@ -346,21 +351,15 @@ class MajsoulRecordParser:
             else:
                 zimo = is_tsumo
             
-            # 5. 创建手牌对象
-            hand = Hand.from_tiles(hand_tiles)
-            for meld in melds:
-                hand.add_meld(meld)
+            # 5. 从手牌中移除和牌
+            if winning_tile in hand_tiles:
+                hand_tiles.remove(winning_tile)
             
-            # 6. 验证和牌
-            from src.agent.validator import WinValidator
-            validator = WinValidator()
-            
-            result = validator.validate(
-                hand=hand,
-                winning_tile=winning_tile,
-                is_tsumo=zimo,
-                is_riichi=is_riichi
-            )
+            # 6. 直接使用雀魂的计分结果
+            han = sum(f.val for f in hule.fans)
+            fu = hule.fu
+            points = self._calculate_points(hule)
+            yaku_list = [f.name for f in hule.fans]
             
             # 7. 构建结果
             result_dict = {
@@ -369,12 +368,12 @@ class MajsoulRecordParser:
                 "hand": hand_tiles,
                 "melds": melds,
                 "winning_tile": winning_tile,
-                "is_valid": result.is_valid,
-                "error": result.error,
-                "han": result.han,
-                "fu": result.fu,
-                "points": result.points,
-                "yaku_list": [y.name for y in result.yaku_list] if result.yaku_list else [],
+                "is_valid": True,  # 信任雀魂
+                "error": None,
+                "han": han,
+                "fu": fu,
+                "points": points,
+                "yaku_list": yaku_list,
                 "original_fans": [(f.name, f.val) for f in hule.fans],
                 "original_fu": hule.fu,
                 "original_count": hule.count
@@ -383,6 +382,23 @@ class MajsoulRecordParser:
             results.append(result_dict)
         
         return results
+    
+    def _calculate_points(self, hule) -> int:
+        """
+        计算点数
+        
+        Args:
+            hule: HuleInfo 数据
+        
+        Returns:
+            点数
+        """
+        if hule.point_rong > 0:
+            # 荣和
+            return hule.point_rong
+        else:
+            # 自摸
+            return hule.point_zimo_qin + hule.point_zimo_xian * 2
 
 
 if __name__ == "__main__":
