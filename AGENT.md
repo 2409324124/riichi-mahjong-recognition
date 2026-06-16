@@ -155,7 +155,7 @@ python -m src.gui
 
 ## 测试状态
 
-**总计：97 个测试全部通过**
+**总计：120 个测试全部通过**
 
 | 测试文件 | 测试数 | 说明 |
 |----------|--------|------|
@@ -165,6 +165,7 @@ python -m src.gui
 | `tests/test_cross_validation.py` | 15 | 与 mahjong 包交叉验证 |
 | `tests/test_system.py` | 13 | 系统集成测试 |
 | `tests/test_gui.py` | 9 | GUI 测试 |
+| `tests/test_boundary.py` | 23 | 边界条件测试 |
 
 ---
 
@@ -315,5 +316,5 @@ pytest tests/ -v
 ---
 
 **最后更新**：2026年6月15日
-**版本**：v0.4.0
-**测试状态**：97 passed
+**版本**：v0.5.0
+**测试状态**：120 passed
