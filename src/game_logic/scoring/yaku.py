@@ -100,7 +100,8 @@ class YakuRecognizer:
                   is_tsumo: bool = False,
                   is_dealer: bool = False,
                   round_wind: int = 27,
-                  seat_wind: int = 27) -> List[Yaku]:
+                  seat_wind: int = 27,
+                  is_first_round: bool = False) -> List[Yaku]:
         """
         识别手牌中的役种
         
@@ -112,6 +113,7 @@ class YakuRecognizer:
             is_dealer: 是否庄家
             round_wind: 场风牌ID
             seat_wind: 自风牌ID
+            is_first_round: 是否第一巡（用于天和/地和判定）
         
         Returns:
             识别到的役种列表
@@ -121,7 +123,13 @@ class YakuRecognizer:
         # 获取手牌的34数组表示
         tiles_34 = hand.to_34_array()
         
-        # 检查各种役种
+        # ── 优先检查役满 ────────────────────────────────────────────────────────
+        # 役满成立时，普通役不再叠加
+        yakuman_yaku = self._check_yakuman(tiles_34, hand.get_melds(), is_tsumo, is_dealer, is_first_round)
+        if yakuman_yaku:
+            return yakuman_yaku
+        
+        # ── 普通役 ──────────────────────────────────────────────────────────────
         if is_riichi:
             recognized_yaku.append(self._find_yaku("立直"))
         
@@ -171,8 +179,10 @@ class YakuRecognizer:
         if self._is_honroutou(tiles_34, hand.get_melds()):
             recognized_yaku.append(self._find_yaku("混老头"))
         
-        # 七对子
+        # 七对子（与平和、对对和互斥）
         if self._is_chiitoitsu(tiles_34):
+            # 七对子与平和互斥
+            recognized_yaku = [y for y in recognized_yaku if y.name != "平和"]
             recognized_yaku.append(self._find_yaku("七对子"))
         
         # 三色同顺
@@ -203,10 +213,6 @@ class YakuRecognizer:
         if self._is_chinitsu(tiles_34, hand.get_melds()):
             recognized_yaku.append(self._find_yaku("清一色"))
         
-        # 役满检查
-        yakuman_yaku = self._check_yakuman(tiles_34, hand.get_melds(), is_tsumo, is_dealer)
-        recognized_yaku.extend(yakuman_yaku)
-        
         return recognized_yaku
     
     def _find_yaku(self, name: str) -> Optional[Yaku]:
@@ -235,17 +241,82 @@ class YakuRecognizer:
     
     def _is_pinfu(self, tiles_34: List[int], melds: List[List[Tile]], 
                   round_wind: int, seat_wind: int) -> bool:
-        """检查平和"""
+        """检查平和
+        
+        平和条件：
+        1. 门前清（无副露）
+        2. 全部由顺子组成（无刻子）
+        3. 雀头不是役牌（风牌或三元牌）
+        
+        实现：用简单的分解法找到满足条件的雀头和顺子组合。
+        """
         # 门前清限定
         if melds:
             return False
         
-        # 检查是否和牌
-        # 这里简化处理，实际需要检查和牌的分解
-        # 平和条件：4组顺子+1对非役牌雀头+两面听
+        # 七对子形式不能是平和
+        if self._is_chiitoitsu(tiles_34):
+            return False
         
-        # 检查雀头是否为役牌
-        # 简化：假设雀头不是役牌
+        # 尝试分解手牌，找到合法的平和形
+        return self._try_pinfu_decompose(list(tiles_34), round_wind, seat_wind)
+    
+    def _try_pinfu_decompose(self, tiles_34: List[int], round_wind: int, seat_wind: int) -> bool:
+        """递归尝试平和分解"""
+        # 找到第一个非零位置
+        first = -1
+        for i in range(len(tiles_34)):
+            if tiles_34[i] > 0:
+                first = i
+                break
+        
+        if first == -1:
+            # 所有牌已消耗完，检查是否成功：此时应已找到雀头
+            return False  # 如果走到这里说明没有雀头
+        
+        return self._pinfu_try_with_pair(list(tiles_34), round_wind, seat_wind)
+    
+    def _pinfu_try_with_pair(self, tiles_34: List[int], round_wind: int, seat_wind: int) -> bool:
+        """尝试找到合法的平和分解（含雀头）"""
+        # 尝试每一种可能的雀头
+        for pair_id in range(34):
+            if tiles_34[pair_id] >= 2:
+                tile = Tile(pair_id)
+                # 雀头不能是役牌（风牌或三元牌）
+                if tile.is_honor_tile:
+                    continue
+                # 取出雀头
+                t = list(tiles_34)
+                t[pair_id] -= 2
+                # 剩余必须全是顺子
+                if self._can_decompose_to_sequences(t):
+                    return True
+        return False
+    
+    def _can_decompose_to_sequences(self, tiles_34: List[int]) -> bool:
+        """检查给定的34数组是否能完全分解为顺子"""
+        t = list(tiles_34)
+        for i in range(34):
+            if t[i] > 0:
+                # 必须是数牌才能组成顺子
+                if i >= 27:  # 字牌无法构成顺子
+                    return False
+                # 检查是否能在同一花色内组成顺子
+                suit_start = (i // 9) * 9
+                local = i - suit_start
+                if local > 6:  # 不能从8或9开始顺子
+                    return False
+                # 检查下两张牌是否存在
+                if i + 1 >= 34 or i + 2 >= 34:
+                    return False
+                if (i + 1) // 9 != suit_start // 9 or (i + 2) // 9 != suit_start // 9:
+                    return False
+                count = t[i]
+                if t[i + 1] < count or t[i + 2] < count:
+                    return False
+                t[i] = 0
+                t[i + 1] -= count
+                t[i + 2] -= count
         return True
     
     def _is_iipeiko(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
@@ -321,20 +392,29 @@ class YakuRecognizer:
         return kan_count >= 3
     
     def _is_toitoi(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查对对和"""
-        # 检查手牌中的刻子
-        triplets = sum(1 for count in tiles_34 if count >= 3)
+        """检查对对和：4组刻子（或杠）+1对雀头，无顺子"""
+        # 找出手牌中的对子（雀头候选）
+        pair_count = sum(1 for c in tiles_34 if c >= 2)
+        # 找出手牌中的刻子（count >= 3）
+        triplet_count = sum(1 for c in tiles_34 if c >= 3)
         
-        # 检查副露中的刻子
+        # 检查副露中的刻子/杠子
         meld_triplets = sum(1 for meld in melds if len(meld) >= 3)
         
-        return triplets + meld_triplets >= 4
+        total_triplets = triplet_count + meld_triplets
+        
+        # 需要4组刻子/杠，且手牌中恰有1个雀头
+        # 简单验证：总刻子数=4，且有雀头
+        if total_triplets == 4 and pair_count >= 1:
+            return True
+        # 有副露时：手牌刻子 + 副露刻子 = 4，手牌还有一对雀头
+        # 比如2副露，手牌需要2个刻子+1对
+        return False
     
     def _is_sanankou(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查三暗刻"""
-        # 检查手牌中的暗刻
+        """检查三暗刻：手牌中有3组以上暗刻（count >= 3）"""
+        # 手牌中 count>=3 的才是暗刻候选
         ankou_count = sum(1 for count in tiles_34 if count >= 3)
-        
         return ankou_count >= 3
     
     def _is_shousangen(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
@@ -367,9 +447,11 @@ class YakuRecognizer:
         return True
     
     def _is_chiitoitsu(self, tiles_34: List[int]) -> bool:
-        """检查七对子"""
-        pairs = sum(1 for count in tiles_34 if count >= 2)
-        return pairs >= 7
+        """检查七对子：恰好7种不同的对子，每种恰好2张，共14张"""
+        # 七对子：7种牌各2张（不允许同种牌4张凑两对）
+        pairs = sum(1 for count in tiles_34 if count == 2)
+        total = sum(tiles_34)
+        return pairs == 7 and total == 14
     
     def _is_sanshoku_doujun(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
         """检查三色同顺"""
@@ -396,14 +478,21 @@ class YakuRecognizer:
         return False
     
     def _is_chanta(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查混全带幺九"""
-        # 混全带幺九的条件：每组牌（面子+雀头）都包含幺九牌
-        # 并且必须包含字牌和老头牌
+        """检查混全带幺九：每组面子和雀头都包含幺九牌，且含字牌
+        
+        逻辑：
+        - 手牌中不能有纯中张的刻子（2-8且不在含幺九的顺子里）
+        - 必须包含字牌（否则是纯全带幺九）
+        - 只含幺九牌时是混老头，不是混全带幺九
+        """
+        # 不能是七对子形式
+        if self._is_chiitoitsu(tiles_34):
+            return False
         
         has_terminal = False
         has_honor = False
+        has_simple = False  # 中张牌（2-8）
         
-        # 检查手牌中的所有牌
         for tile_id in range(Tile.TOTAL_TILES):
             if tiles_34[tile_id] > 0:
                 tile = Tile(tile_id)
@@ -411,23 +500,45 @@ class YakuRecognizer:
                     has_terminal = True
                 elif tile.is_honor_tile:
                     has_honor = True
-                # 注意：这里不检查中张牌，因为中张牌可以出现在包含幺九牌的顺子中
+                elif tile.is_simple:
+                    has_simple = True
         
-        # 检查副露
         for meld in melds:
             for tile in meld:
                 if tile.is_terminal:
                     has_terminal = True
                 elif tile.is_honor_tile:
                     has_honor = True
+                elif tile.is_simple:
+                    has_simple = True
         
-        # 必须同时包含老头牌和字牌
-        if not (has_terminal and has_honor):
+        # 必须同时含字牌（否则是纯全带幺九）
+        if not has_honor:
             return False
         
-        # 检查每组牌是否都包含幺九牌
-        # 这里简化处理，实际需要更复杂的检查
-        # 对于研究原型，我们假设如果手牌包含老头牌和字牌，就是混全带幺九
+        # 必须有老头牌
+        if not has_terminal:
+            return False
+        
+        # 中张牌只能以「顺子包含幺九」的形式存在（如123、789）
+        # 简单判定：如果有中张刻子（纯中张），则不是混全带幺九
+        # 检查是否有纯中张刻子（即 2-8 之间的刻子）
+        for tile_id in range(Tile.TOTAL_TILES):
+            tile = Tile(tile_id)
+            if tile.is_simple and tiles_34[tile_id] >= 3:
+                return False  # 有中张刻子，不符合
+        
+        # 检查副露中是否有纯中张刻子/顺子不含幺九
+        for meld in melds:
+            tiles = meld
+            has_terminal_or_honor = any(t.is_terminal_or_honor for t in tiles)
+            if not has_terminal_or_honor:
+                return False
+        
+        # 如果只有幺九牌（混老头），则不是混全带幺九
+        if not has_simple:
+            return False
+        
         return True
     
     def _is_honitsu(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
@@ -455,13 +566,21 @@ class YakuRecognizer:
         return len(suits) == 1 and has_honor
     
     def _is_junchan(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查纯全带幺九"""
-        # 纯全带幺九的条件：每组牌（面子+雀头）都包含老头牌（1或9）
-        # 并且不能包含字牌
+        """检查纯全带幺九：每组面子和雀头都含老头牌（1或9），不含字牌
+        
+        逻辑：
+        - 不含字牌
+        - 必须有老头牌
+        - 不能有纯中张刻子
+        - 每组副露都含幺九
+        """
+        # 不能是七对子形式
+        if self._is_chiitoitsu(tiles_34):
+            return False
         
         has_terminal = False
+        has_simple = False
         
-        # 检查手牌中的所有牌
         for tile_id in range(Tile.TOTAL_TILES):
             if tiles_34[tile_id] > 0:
                 tile = Tile(tile_id)
@@ -469,9 +588,9 @@ class YakuRecognizer:
                     has_terminal = True
                 elif tile.is_honor_tile:
                     return False  # 不能包含字牌
-                # 注意：这里不检查中张牌，因为中张牌可以出现在包含老头牌的顺子中
+                elif tile.is_simple:
+                    has_simple = True
         
-        # 检查副露
         for meld in melds:
             for tile in meld:
                 if tile.is_terminal:
@@ -479,13 +598,24 @@ class YakuRecognizer:
                 elif tile.is_honor_tile:
                     return False  # 不能包含字牌
         
-        # 必须包含老头牌
         if not has_terminal:
             return False
         
-        # 检查每组牌是否都包含老头牌
-        # 这里简化处理，实际需要更复杂的检查
-        # 对于研究原型，我们假设如果手牌只包含数牌和老头牌，就是纯全带幺九
+        # 必须有中张牌（否则是清老头）
+        if not has_simple:
+            return False
+        
+        # 检查是否有纯中张刻子
+        for tile_id in range(Tile.TOTAL_TILES):
+            tile = Tile(tile_id)
+            if tile.is_simple and tiles_34[tile_id] >= 3:
+                return False
+        
+        # 检查副露中的每组是否含老头牌
+        for meld in melds:
+            if not any(t.is_terminal for t in meld):
+                return False
+        
         return True
     
     def _is_ryanpeiko(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
@@ -528,7 +658,8 @@ class YakuRecognizer:
         return len(suits) == 1
     
     def _check_yakuman(self, tiles_34: List[int], melds: List[List[Tile]],
-                       is_tsumo: bool, is_dealer: bool) -> List[Yaku]:
+                       is_tsumo: bool, is_dealer: bool,
+                       is_first_round: bool = False) -> List[Yaku]:
         """检查役满"""
         yakuman_list = []
         
@@ -572,32 +703,37 @@ class YakuRecognizer:
         if self._is_suukantsu(melds):
             yakuman_list.append(self._find_yaku("四杠子"))
         
-        # 天和
-        if is_tsumo and is_dealer and not melds:
+        # 天和（仅第一巡庄家自摸）
+        if is_first_round and is_tsumo and is_dealer and not melds:
             yakuman_list.append(self._find_yaku("天和"))
         
-        # 地和
-        if is_tsumo and not is_dealer and not melds:
+        # 地和（仅第一巡闲家自摸）
+        if is_first_round and is_tsumo and not is_dealer and not melds:
             yakuman_list.append(self._find_yaku("地和"))
         
         return yakuman_list
     
     def _is_kokushi(self, tiles_34: List[int]) -> bool:
-        """检查国士无双"""
+        """检查国士无双
+        
+        国士无双：13种幺九牌各至少1张，且其中一种有对子。
+        支持13张（和牌前）和14张（含和牌）两种情形。
+        """
         terminal_honor_tiles = Tile.TERMINAL_AND_HONOR_TILES
         
-        # 检查是否包含所有幺九牌
+        # 检查是否包含所有13种幺九牌
         for tile_id in terminal_honor_tiles:
             if tiles_34[tile_id] == 0:
                 return False
         
-        # 检查是否有对子
+        # 检查是否有对子（至少一种幺九牌有2张）
         has_pair = any(tiles_34[tile_id] >= 2 for tile_id in terminal_honor_tiles)
+        if not has_pair:
+            return False
         
-        # 检查总数
+        # 检查总数：13张（和牌未计入）或14张（含和牌）都可
         total = sum(tiles_34)
-        
-        return has_pair and total == 14
+        return total in (13, 14)
     
     def _is_chuuren_poutou(self, tiles_34: List[int]) -> bool:
         """检查九莲宝灯"""
@@ -641,26 +777,34 @@ class YakuRecognizer:
         return total == 14
     
     def _is_suuankou(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查四暗刻"""
+        """检查四暗刻：门前清，手牌中有4组暗刻（count>=3）"""
         # 门前清限定
         if melds:
             return False
         
-        # 检查手牌中的刻子
+        # 手牌中 count>=3 的刻子数
         ankou_count = sum(1 for count in tiles_34 if count >= 3)
+        # 手牌总数应为14（4刻+1对）
+        total = sum(tiles_34)
         
-        return ankou_count >= 4
+        return ankou_count >= 4 and total == 14
     
     def _is_daisangen(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
-        """检查大三元"""
+        """检查大三元：三种三元牌（白发中）各有一组刻子"""
         dragon_tiles = [31, 32, 33]  # 白发中
         
-        # 检查手牌中的三元牌刻子
-        for dragon_id in dragon_tiles:
-            if tiles_34[dragon_id] < 3:
-                return False
+        # 手牌中的三元刻子
+        hand_triplets = sum(1 for d in dragon_tiles if tiles_34[d] >= 3)
         
-        return True
+        # 副露中的三元刻子/杠子
+        meld_triplets = 0
+        for meld in melds:
+            if len(meld) >= 3:
+                first = meld[0]
+                if first.is_dragon_tile:
+                    meld_triplets += 1
+        
+        return hand_triplets + meld_triplets >= 3
     
     def _is_shousuushii(self, tiles_34: List[int], melds: List[List[Tile]]) -> bool:
         """检查小四喜"""

@@ -77,7 +77,7 @@ class TestWinValidator:
         )
         
         assert result.is_valid == False
-        assert "手牌+副露不是13张" in result.error
+        assert "手牌+副露数量异常" in result.error
     
     def test_invalid_tile_count(self):
         """测试牌数量超过4张"""

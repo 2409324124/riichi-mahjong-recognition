@@ -75,14 +75,33 @@ class WinValidator:
         # 1. 牌数检查（手牌 + 副露 = 13 张）
         hand_tiles = hand.get_tiles()
         melds = hand.get_melds()
-        meld_tiles_count = sum(len(meld) for meld in melds)
+        
+        # 计算副露牌数（杠子算作3张面子）
+        meld_tiles_count = 0
+        for meld in melds:
+            if len(meld) == 4:
+                meld_tiles_count += 3  # 杠子算作3张面子
+            else:
+                meld_tiles_count += len(meld)
+        
         total_tiles = len(hand_tiles) + meld_tiles_count
         
-        if total_tiles != 13:
-            return WinResult(
-                is_valid=False,
-                error=f"手牌+副露不是13张（当前手牌{len(hand_tiles)}张 + 副露{meld_tiles_count}张 = {total_tiles}张）"
-            )
+        # 和牌已在手牌中时，总数应为 13
+        # 和牌不在手牌中时，总数应为 13（加上和牌后为 14）
+        if winning_tile in hand_tiles:
+            # 和牌已在手牌中
+            if total_tiles < 13 or total_tiles > 14:
+                return WinResult(
+                    is_valid=False,
+                    error=f"手牌+副露数量异常（当前手牌{len(hand_tiles)}张 + 副露{meld_tiles_count}张 = {total_tiles}张）"
+                )
+        else:
+            # 和牌不在手牌中
+            if total_tiles < 12 or total_tiles > 13:
+                return WinResult(
+                    is_valid=False,
+                    error=f"手牌+副露数量异常（当前手牌{len(hand_tiles)}张 + 副露{meld_tiles_count}张 = {total_tiles}张）"
+                )
         
         # 添加和的牌，组成 14 张
         test_hand = hand.copy()

@@ -126,10 +126,14 @@ class TestYakuRecognizer:
     
     def test_toitoi(self):
         """测试对对和"""
-        # 手牌：1m1m1m2p2p2p3s3s3s + 4m4m4m5m（四组刻子）
-        hand_strings = ["1m", "1m", "1m", "2p", "2p", "2p", "3s", "3s", "3s", "4m", "4m", "4m", "5m"]
-        self._check_yaku(hand_strings, "5m", "对对和",
-                        is_tsumo=True)
+        # 使用有副露的手牌（有副露则不能是四暗刻）
+        # 3个暗刻 + 1个碰出的刻子(副露) = 对对和
+        hand = Hand.from_strings(["1m", "1m", "1m", "2p", "2p", "2p", "3s", "3s", "3s", "5m"])
+        hand.add_meld([Tile.from_string(s) for s in ["4m", "4m", "4m"]])
+        winning_tile = Tile.from_string("5m")
+        result = self.calculator.calculate(hand=hand, winning_tile=winning_tile, is_tsumo=True)
+        yaku_names = [yaku.name for yaku in result.yaku_list]
+        assert "对对和" in yaku_names, f"期望役种 '对对和' 未找到，实际役种: {yaku_names}"
     
     def test_sanankou(self):
         """测试三暗刻"""

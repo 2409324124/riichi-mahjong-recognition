@@ -87,14 +87,34 @@ class ScoreCalculator:
             点数计算结果
         """
         # 识别役种
+        # 如果手牌是 13 张（hand + meld = 13），临时加入和牌形成 14 张用于役种识别
+        # （国士无双等需要完整的 14 张手牌）
+        import copy
+        hand_tiles_count = len(hand.get_tiles())
+        meld_tiles_count = sum(
+            3 if len(m) == 4 else len(m) 
+            for m in hand.get_melds()
+        )
+        total_count = hand_tiles_count + meld_tiles_count
+        
+        if total_count < 14:
+            recog_hand = copy.deepcopy(hand)
+            try:
+                recog_hand.add_tile(winning_tile)
+            except Exception:
+                recog_hand = hand
+        else:
+            recog_hand = hand
+        
         yaku_list = self._yaku_recognizer.recognize(
-            hand=hand,
+            hand=recog_hand,
             is_riichi=is_riichi,
             is_ippatsu=is_ippatsu,
             is_tsumo=is_tsumo,
             is_dealer=is_dealer,
             round_wind=round_wind,
-            seat_wind=seat_wind
+            seat_wind=seat_wind,
+            is_first_round=is_first_round
         )
         
         # 检查是否有役
@@ -139,6 +159,9 @@ class ScoreCalculator:
                 total_points = 16000
             elif score_type == ScoreType.SANBAIMAN:
                 total_points = 24000
+            else:  # YAKUMAN (13番以上但无役满役种，按役满计算)
+                total_points = 32000
+
         
         # 计算支付
         payment = self._calculate_payment(

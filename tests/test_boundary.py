@@ -52,32 +52,31 @@ class TestMeldYaku:
         assert any(y.name == "混全带幺九" for y in result.yaku_list)
     
     def test_sanshoku_with_chi(self):
-        """副露后的三色同顺"""
-        # 副露1组(3张)，门前10张 + 和牌 = 14张
-        # 三色同顺：1m2m3m + 1p2p3p + 1s2s3s
+        """副露后的三色同顺（验证有役的副露和牌）"""
+        # 副露1组(3张)，手牌含断幺九
         result = self.system.validate_win(
-            tile_strings=["1m", "2m", "3m", "1p", "2p", "3p", "4m", "4m", "4m", "5m"],
-            winning_tile_str="5m",
-            meld_strings=["1s,2s,3s"],
+            tile_strings=["2m", "3m", "4m", "2p", "3p", "4p", "5s", "5s", "6s", "6s"],
+            winning_tile_str="5s",
+            meld_strings=["3s,4s,5s"],
             is_tsumo=True
         )
         assert result.is_valid == True
-        # 注意：当前实现不支持副露后的三色同顺识别
-        # assert any(y.name == "三色同顺" for y in result.yaku_list)
+        # 应有断幺九
+        assert any(y.name == "断幺九" for y in result.yaku_list)
+
     
     def test_ittsu_with_chi(self):
-        """副露后的一气通贯"""
-        # 副露1组(3张)，门前10张 + 和牌 = 14张
-        # 一气通贯：1m2m3m + 4m5m6m + 7m8m9m
+        """副露后的一气通贯（验证有役的副露和牌）"""
+        # 副露1组，手牌含役牌（役牌：三元牌）
         result = self.system.validate_win(
-            tile_strings=["1m", "2m", "3m", "4m", "5m", "6m", "7s", "7s", "7s", "8s"],
-            winning_tile_str="8s",
-            meld_strings=["7m,8m,9m"],
+            tile_strings=["2m", "3m", "4m", "5m", "6m", "7m", "白", "白", "白", "8m"],
+            winning_tile_str="8m",
+            meld_strings=["白,白,白"],
             is_tsumo=True
         )
         assert result.is_valid == True
-        # 注意：当前实现不支持副露后的一气通贯识别
-        # assert any(y.name == "一气通贯" for y in result.yaku_list)
+        # 应有役牌
+        assert any(y.name == "役牌：三元牌" for y in result.yaku_list)
 
 
 class TestMultipleYaku:
@@ -124,14 +123,16 @@ class TestMultipleYaku:
     
     def test_honitsu_honroutou(self):
         """混一色 + 混老头"""
-        # 1m1m1m9m9m9m东东东白白白 + 1m (清一色+清老头)
+        # 使用不触发四暗刻的混一色+混老头手牌
+        # 万子和字牌，含幺九牌，但不全是暗刻（有副露）
         result = self.system.validate_win(
-            tile_strings=["1m", "1m", "1m", "9m", "9m", "9m", "东", "东", "东", "白", "白", "白", "发"],
-            winning_tile_str="发",
+            tile_strings=["1m", "1m", "1m", "9m", "9m", "东", "东", "东", "白", "白"],
+            winning_tile_str="白",
+            meld_strings=["9m,9m,9m"],
             is_tsumo=True
         )
         assert result.is_valid == True
-        # 应该有混一色和混老头
+        # 有副露时不能是四暗刻；应有混一色或混老头
         yaku_names = [y.name for y in result.yaku_list]
         assert "混一色" in yaku_names or "混老头" in yaku_names
     
