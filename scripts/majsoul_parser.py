@@ -310,7 +310,10 @@ class MajsoulRecordParser:
     
     def validate_hora(self, hule_data, is_tsumo: bool = None, is_riichi: bool = False) -> dict:
         """
-        验证和牌事件（直接使用雀魂结果）
+        读取和牌事件（直接信任雀魂结果）
+
+        注意：该方法不使用项目自定义 WinValidator 重新验证和牌形状/役种。
+        返回的 is_valid=True 表示雀魂记录本身给出了合法和牌结果。
         
         Args:
             hule_data: HuleInfo 数据
@@ -369,6 +372,8 @@ class MajsoulRecordParser:
                 "melds": melds,
                 "winning_tile": winning_tile,
                 "is_valid": True,  # 信任雀魂
+                "validation_mode": "trusted_external_result",
+                "validation_note": "直接信任雀魂记录中的和牌和计分结果，未使用自定义验证器重新验证",
                 "error": None,
                 "han": han,
                 "fu": fu,
@@ -428,6 +433,7 @@ if __name__ == "__main__":
                     print(f"  副露: {len(result['melds'])} 组")
                     print(f"  和牌: {result['winning_tile']}")
                     print(f"  验证: {'✓' if result['is_valid'] else '✗'}")
+                    print(f"  验证模式: {result.get('validation_mode', 'unknown')}")
                     if result['is_valid']:
                         print(f"  番数: {result['han']}")
                         print(f"  符数: {result['fu']}")
