@@ -132,6 +132,8 @@ environment.yml
 .vscode/settings.json
 .idea/workspace.xml
 # Data and runs
-data/
+data/*
+!data/derived/
+data/derived/*
+!data/derived/risk_labels.sample.jsonl
 runs/
-
