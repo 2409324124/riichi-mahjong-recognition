@@ -2,6 +2,7 @@ from .label_generator import (
     build_candidate_risk_feature,
     generate_mjai_risk_labels,
 )
+from .truth_labels import RiskTruthLabel, evaluate_ron_truth
 from .rules import (
     is_aka_dora,
     is_kabe,
@@ -15,6 +16,8 @@ from .rules import (
 __all__ = [
     "build_candidate_risk_feature",
     "generate_mjai_risk_labels",
+    "RiskTruthLabel",
+    "evaluate_ron_truth",
     "is_aka_dora",
     "is_kabe",
     "is_no_chance",

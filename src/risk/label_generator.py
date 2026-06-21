@@ -14,6 +14,7 @@ from .rules import (
     remaining_count,
     visible_count,
 )
+from .truth_labels import evaluate_ron_truth
 
 
 def build_candidate_risk_feature(
@@ -67,6 +68,7 @@ def feature_to_json_record(
     chosen_by_human: bool,
     target_player: int,
     feature: CandidateDiscardRiskFeature,
+    missing_reason: str | None = None,
 ) -> Dict:
     feature_dict = asdict(feature)
     true_can_ron = feature_dict.pop("true_can_ron")
@@ -85,6 +87,7 @@ def feature_to_json_record(
         "label": {
             "true_can_ron": true_can_ron,
             "true_loss_points": true_loss_points,
+            "missing_reason": missing_reason,
         },
     }
 
@@ -185,12 +188,24 @@ def generate_mjai_risk_labels(events: List[Dict], game_id: str = "unknown") -> L
                 for target_player in range(4):
                     if target_player == actor:
                         continue
+                    truth = evaluate_ron_truth(
+                        target_hand_tiles=hands.get(target_player, []),
+                        target_melds=melds.get(target_player, []),
+                        candidate_tile=candidate,
+                        target_player=target_player,
+                        dealer=public_state.round_context.dealer,
+                        round_wind=public_state.round_context.round_wind,
+                        seat_wind=public_state.round_context.seat_wind_for(target_player),
+                        is_riichi=public_state.players[target_player].riichi_declared,
+                    )
                     feature = build_candidate_risk_feature(
                         public_state=public_state,
                         actor=actor,
                         candidate_tile=candidate,
                         target_player=target_player,
                         turn=turn,
+                        true_can_ron=truth.true_can_ron,
+                        true_loss_points=truth.true_loss_points,
                     )
                     labels.append(
                         feature_to_json_record(
@@ -203,6 +218,7 @@ def generate_mjai_risk_labels(events: List[Dict], game_id: str = "unknown") -> L
                             chosen_by_human=candidate == chosen_tile,
                             target_player=target_player,
                             feature=feature,
+                            missing_reason=truth.missing_reason,
                         )
                     )
             public_state.record_discard(

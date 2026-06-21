@@ -20,6 +20,7 @@ from scripts.majsoul_parser import MajsoulRecordParser
 from src.agent.validator import WinValidator
 from src.context import PublicState, RoundContext, VerificationInput
 from src.game_logic.hand import Hand
+from src.majsoul import normalize_hule_melds, normalize_record_meld
 
 
 FAILURE_TYPES = {
@@ -76,15 +77,10 @@ def _context_flags(hule) -> Dict:
     }
 
 
-def _parse_hule_melds(parser: MajsoulRecordParser, hule) -> tuple[List[List[str]], int]:
-    melds = []
-    unparsed_count = 0
-    for ming in getattr(hule, "ming", []):
-        meld_tiles = parser.parse_ming(ming)
-        if meld_tiles:
-            melds.append(meld_tiles)
-        else:
-            unparsed_count += 1
+def _parse_hule_melds(hule) -> tuple[List[List[str]], int]:
+    structured_melds = normalize_hule_melds(list(getattr(hule, "ming", [])), hule.seat)
+    melds = [meld.tiles for meld in structured_melds if meld.meld_type != "unknown"]
+    unparsed_count = sum(1 for meld in structured_melds if meld.meld_type == "unknown")
     return melds, unparsed_count
 
 
@@ -97,7 +93,7 @@ def _build_verification_input(
     is_tsumo = bool(hule.zimo)
     seat_wind = context.seat_wind_for(hule.seat)
     flags = _context_flags(hule)
-    melds, unparsed_meld_count = _parse_hule_melds(parser, hule)
+    melds, unparsed_meld_count = _parse_hule_melds(hule)
     return VerificationInput(
         hand_tiles=list(hule.hand),
         melds=melds,
@@ -296,14 +292,18 @@ def validate_records(records: List[Dict], uuid: str = "unknown") -> List[Dict]:
             last_discard_actor = data.seat
 
         elif name == "RecordChiPengGang" and public_state is not None:
-            public_state.record_meld(data.seat, list(data.tiles))
-            for tile, from_seat in zip(data.tiles, data.froms):
+            meld = normalize_record_meld(name, data)
+            if meld.meld_type != "unknown":
+                public_state.record_meld(data.seat, meld.tiles)
+            for tile, from_seat in zip(meld.tiles, getattr(data, "froms", [])):
                 if from_seat == data.seat and tile in hands[data.seat]:
                     hands[data.seat].remove(tile)
 
         elif name == "RecordAnGangAddGang" and public_state is not None:
-            public_state.record_meld(data.seat, list(data.tiles))
-            for tile in data.tiles:
+            meld = normalize_record_meld(name, data)
+            if meld.meld_type != "unknown":
+                public_state.record_meld(data.seat, meld.tiles)
+            for tile in meld.tiles:
                 if tile in hands[data.seat]:
                     hands[data.seat].remove(tile)
 
