@@ -6,6 +6,11 @@ def clamp_probability(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
+def clamp_score(value: float) -> float:
+    """Clamp a normalized non-probability score to [0, 1]."""
+    return max(0.0, min(1.0, float(value)))
+
+
 @dataclass
 class OpponentBelief:
     player_id: int
@@ -19,7 +24,7 @@ class OpponentBelief:
 
     def __post_init__(self) -> None:
         self.tenpai_prob = clamp_probability(self.tenpai_prob)
-        self.speed_score = clamp_probability(self.speed_score)
+        self.speed_score = clamp_score(self.speed_score)
         self.attack_prob = clamp_probability(self.attack_prob)
         self.defense_prob = clamp_probability(self.defense_prob)
         self.suit_intent = {

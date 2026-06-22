@@ -7,18 +7,18 @@ Added an explainable rule-based opponent belief baseline. This is not RL, not su
 ## New Module
 
 - `src/opponent/`
-  - `OpponentBelief`: public belief data structure with bounded probabilities.
+  - `OpponentBelief`: public belief data structure with bounded probabilities and normalized scores.
   - `OpponentBeliefEstimator`: estimates one belief per opponent from `PublicState`, `RoundContext`, and optional `CandidateDiscardRiskFeature` rows.
 
 ## Current Estimation Rules
 
-- Riichi strongly raises `tenpai_prob`, `attack_prob`, and `speed_score`.
+- Riichi strongly raises `tenpai_prob`, `attack_prob`, and normalized `speed_score`.
 - Meld count raises `speed_score`; two or more melds also raise attack and tenpai estimates.
 - Dealer seat slightly raises attack pressure.
 - Candidate tile danger uses visible risk features:
-  - genbutsu lowers danger,
+  - genbutsu lowers danger but keeps a nonzero residual floor,
   - suji lowers danger,
-  - wall/no-chance lowers danger,
+  - wall/no-chance lowers danger but does not force zero risk,
   - dora, aka dora, and yakuhai raise danger,
   - very low remaining count lowers wait risk.
 - Suit intent is estimated from public meld and discard suit distribution.
@@ -28,7 +28,8 @@ Added an explainable rule-based opponent belief baseline. This is not RL, not su
 
 - No private hand inference beyond public signals.
 - No learned calibration; probability values are heuristic baselines.
-- No furiten, wait-shape, score-distribution, or hand-value model beyond supplied risk features.
+- Genbutsu, suji, wall, and no-chance are heuristic risk reductions, not proof that a tile is safe.
+- No furiten, furiten解除 timing, wait-shape, double-pair wait, score-distribution, or hand-value model beyond supplied risk features.
 - Suit intent is public-information only and can be wrong for closed hands.
 - Physical timing, tsumogiri/tedashi source area, hesitation, and tile movement are not used yet.
 
@@ -39,4 +40,4 @@ Add a separate `PhysicalBehaviorContext` input with structured behavior events s
 ## Verification
 
 - `python -m pytest tests/test_opponent_belief.py tests/test_opponent_estimator.py -q`: passed.
-- `python -m pytest tests/ -v -k "not gui"`: 152 passed, 9 deselected.
+- `python -m pytest tests/ -v -k "not gui"`: 157 passed, 9 deselected.

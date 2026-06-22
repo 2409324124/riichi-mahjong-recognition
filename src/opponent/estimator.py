@@ -21,14 +21,14 @@ class OpponentBeliefEstimator:
             features_by_target[feature.target_player].append(feature)
 
         beliefs = {}
-        for player_id in sorted(public_state.players):
-            if player_id == actor:
+        for seat in sorted(public_state.players):
+            if seat == actor:
                 continue
-            beliefs[player_id] = self.estimate_player(
+            beliefs[seat] = self.estimate_player(
                 public_state=public_state,
                 round_context=round_context,
-                player_id=player_id,
-                risk_features=features_by_target.get(player_id, []),
+                seat=seat,
+                risk_features=features_by_target.get(seat, []),
             )
         return beliefs
 
@@ -36,11 +36,11 @@ class OpponentBeliefEstimator:
         self,
         public_state: PublicState,
         round_context: RoundContext,
-        player_id: int,
+        seat: int,
         risk_features: Iterable[CandidateDiscardRiskFeature] = (),
     ) -> OpponentBelief:
-        player = public_state.players[player_id]
-        turn = max(round_context.current_turn, len(public_state.all_discards))
+        player = public_state.players[seat]
+        turn = round_context.current_turn
         meld_count = len(player.melds)
         explanation: List[str] = []
 
@@ -62,7 +62,7 @@ class OpponentBeliefEstimator:
                 attack_prob += 0.12
                 tenpai_prob += 0.08
 
-        if player_id == round_context.dealer:
+        if seat == round_context.dealer:
             attack_prob += 0.06
             explanation.append("dealer seat: attack pressure is higher")
 
@@ -78,7 +78,7 @@ class OpponentBeliefEstimator:
             explanation.extend(reasons)
 
         return OpponentBelief(
-            player_id=player_id,
+            player_id=seat,
             tenpai_prob=tenpai_prob,
             speed_score=speed_score,
             attack_prob=attack_prob,
@@ -96,7 +96,7 @@ class OpponentBeliefEstimator:
             danger += 0.22
             reasons.append(f"{feature.candidate_tile}: target riichi raises danger")
         if feature.is_genbutsu:
-            danger -= 0.34
+            danger = max(danger - 0.34, 0.04)
             reasons.append(f"{feature.candidate_tile}: genbutsu lowers danger")
         elif feature.is_suji:
             danger -= 0.14

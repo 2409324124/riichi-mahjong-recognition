@@ -10,12 +10,12 @@ def test_opponent_belief_constructs_with_explanations():
         defense_prob=0.1,
         suit_intent={"m": 0.1, "p": 0.6, "s": 0.2, "honor": 0.1},
         danger_by_tile={"5p": 0.85},
-        explanation=["player declared riichi"],
+        explanation=["riichi declared: tenpai and attack are high"],
     )
 
     assert belief.player_id == 2
     assert belief.danger_by_tile["5p"] == 0.85
-    assert belief.explanation == ["player declared riichi"]
+    assert belief.explanation == ["riichi declared: tenpai and attack are high"]
 
 
 def test_opponent_belief_clamps_probabilities_to_unit_range():
