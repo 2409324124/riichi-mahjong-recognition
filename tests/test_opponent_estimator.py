@@ -1,4 +1,4 @@
-from src.context import PublicState, RoundContext
+from src.context import PhysicalBehaviorContext, PhysicalBehaviorEvent, PublicState, RoundContext
 from src.risk import build_candidate_risk_feature
 from src.opponent import OpponentBeliefEstimator
 
@@ -135,3 +135,63 @@ def test_suit_intent_reflects_meld_and_discard_patterns():
     assert belief.suit_intent["p"] > belief.suit_intent["m"]
     assert belief.suit_intent["p"] > belief.suit_intent["s"]
     assert any("p-suit" in reason for reason in belief.explanation)
+
+
+def test_physical_behavior_context_adds_observable_explanations():
+    context = _round_context(turn=8)
+    public_state = PublicState.from_round_context(context)
+    physical_context = PhysicalBehaviorContext(
+        events=[
+            PhysicalBehaviorEvent(
+                player_id=1,
+                turn=8,
+                is_tsumogiri=False,
+                discard_source_area="left_edge",
+                draw_insert_area="middle_right",
+                hand_movement_count=2,
+                hesitation_ms=3200,
+                confidence=0.82,
+            )
+        ]
+    )
+
+    belief = OpponentBeliefEstimator().estimate_all(
+        public_state,
+        context,
+        actor=0,
+        physical_context=physical_context,
+    )[1]
+
+    assert belief.speed_score > 0.12
+    assert any("long hesitation" in reason for reason in belief.explanation)
+    assert any("hand-cut discard from left_edge" in reason for reason in belief.explanation)
+    assert any("draw inserted around middle_right" in reason for reason in belief.explanation)
+
+
+def test_low_confidence_physical_behavior_is_explained_but_not_scored():
+    context = _round_context(turn=8)
+    public_state = PublicState.from_round_context(context)
+    baseline = OpponentBeliefEstimator().estimate_all(public_state, context, actor=0)[1]
+    physical_context = PhysicalBehaviorContext(
+        events=[
+            PhysicalBehaviorEvent(
+                player_id=1,
+                turn=8,
+                is_tsumogiri=False,
+                discard_source_area="left_edge",
+                hesitation_ms=5000,
+                confidence=0.2,
+            )
+        ]
+    )
+
+    belief = OpponentBeliefEstimator().estimate_all(
+        public_state,
+        context,
+        actor=0,
+        physical_context=physical_context,
+    )[1]
+
+    assert belief.speed_score == baseline.speed_score
+    assert belief.tenpai_prob == baseline.tenpai_prob
+    assert any("low confidence behavior event ignored" in reason for reason in belief.explanation)

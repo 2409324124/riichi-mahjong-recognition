@@ -1,7 +1,12 @@
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
-from src.context import CandidateDiscardRiskFeature, PublicState, RoundContext
+from src.context import (
+    CandidateDiscardRiskFeature,
+    PhysicalBehaviorContext,
+    PublicState,
+    RoundContext,
+)
 
 from .belief import OpponentBelief, clamp_probability
 
@@ -15,6 +20,7 @@ class OpponentBeliefEstimator:
         round_context: RoundContext,
         actor: int,
         risk_features: Optional[Iterable[CandidateDiscardRiskFeature]] = None,
+        physical_context: Optional[PhysicalBehaviorContext] = None,
     ) -> Dict[int, OpponentBelief]:
         features_by_target = defaultdict(list)
         for feature in risk_features or []:
@@ -29,6 +35,7 @@ class OpponentBeliefEstimator:
                 round_context=round_context,
                 seat=seat,
                 risk_features=features_by_target.get(seat, []),
+                physical_context=physical_context,
             )
         return beliefs
 
@@ -38,6 +45,7 @@ class OpponentBeliefEstimator:
         round_context: RoundContext,
         seat: int,
         risk_features: Iterable[CandidateDiscardRiskFeature] = (),
+        physical_context: Optional[PhysicalBehaviorContext] = None,
     ) -> OpponentBelief:
         player = public_state.players[seat]
         turn = round_context.current_turn
@@ -65,6 +73,19 @@ class OpponentBeliefEstimator:
         if seat == round_context.dealer:
             attack_prob += 0.06
             explanation.append("dealer seat: attack pressure is higher")
+
+        if physical_context is not None:
+            physical_speed, physical_tenpai, physical_attack, physical_reasons = (
+                self._physical_behavior_adjustments(
+                    physical_context=physical_context,
+                    seat=seat,
+                    turn=turn,
+                )
+            )
+            speed_score += physical_speed
+            tenpai_prob += physical_tenpai
+            attack_prob += physical_attack
+            explanation.extend(physical_reasons)
 
         suit_intent = self._estimate_suit_intent(player.melds, player.discards)
         dominant_suit, dominant_score = max(suit_intent.items(), key=lambda item: item[1])
@@ -120,6 +141,48 @@ class OpponentBeliefEstimator:
             danger += 0.08
 
         return clamp_probability(danger), reasons
+
+    def _physical_behavior_adjustments(
+        self,
+        physical_context: PhysicalBehaviorContext,
+        seat: int,
+        turn: int,
+    ) -> tuple[float, float, float, List[str]]:
+        event = physical_context.latest_event_for_player(seat, at_turn=turn)
+        if event is None:
+            return 0.0, 0.0, 0.0, []
+
+        explanation: List[str] = []
+        if event.confidence < 0.5:
+            return 0.0, 0.0, 0.0, ["physical: low confidence behavior event ignored for scoring"]
+
+        speed_score = 0.0
+        tenpai_prob = 0.0
+        attack_prob = 0.0
+
+        if event.hesitation_ms is not None and event.hesitation_ms >= 3000:
+            speed_score += 0.03
+            tenpai_prob += 0.03
+            explanation.append("physical: long hesitation observed before discard")
+        if event.is_tsumogiri is False and event.discard_source_area is not None:
+            speed_score += 0.02
+            explanation.append(f"physical: recent hand-cut discard from {event.discard_source_area}")
+        elif event.is_tsumogiri is True:
+            explanation.append("physical: recent tsumogiri discard observed")
+        if event.draw_insert_area is not None:
+            speed_score += 0.01
+            explanation.append(f"physical: draw inserted around {event.draw_insert_area}")
+        if event.hand_movement_count:
+            speed_score += min(event.hand_movement_count, 4) * 0.01
+            explanation.append("physical: hand movement observed before discard")
+
+        summary = physical_context.summary_for_player(seat)
+        if summary.tsumogiri_rate is not None and summary.tsumogiri_rate >= 0.75:
+            explanation.append("physical: high tsumogiri rate in observed events")
+        if summary.low_confidence_event_count:
+            explanation.append("physical: low confidence events present in behavior context")
+
+        return speed_score, tenpai_prob, attack_prob, explanation
 
     def _estimate_suit_intent(self, melds: List[List[str]], discards: List[str]) -> Dict[str, float]:
         counts = {"m": 0.0, "p": 0.0, "s": 0.0, "honor": 0.0}
